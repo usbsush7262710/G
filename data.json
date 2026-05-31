@@ -1,0 +1,14 @@
+{
+  "warnEmoji": "🍥",
+  "modRoles": [],
+  "logChannel": null,
+  "messages": [],
+
+  "warns": {},
+  "warnCycle": {},
+  "usedMessages": {},
+
+  "punishRoles": [],
+  "punishWarns": {},
+  "punishTimeout": 10
+}
