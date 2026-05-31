@@ -1,0 +1,12 @@
+{
+  "name": "discord-warn-bot",
+  "version": "1.0.0",
+  "description": "Discord warning system bot with punish + escalation",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.15.3"
+  }
+}
