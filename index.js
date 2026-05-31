@@ -11,10 +11,12 @@ const {
 
 const fs = require('fs');
 
+// ================== FIXED IDS ==================
 const TOKEN = process.env.TOKEN;
-const CLIENT_ID = process.env.CLIENT_ID;
-const GUILD_ID = process.env.GUILD_ID;
+const CLIENT_ID = "1496857562031722506";
+const GUILD_ID = "1497416874173141135";
 
+// ================== CLIENT ==================
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -112,7 +114,6 @@ const commands = [
         .setRequired(true)
     ),
 
-  // 🔥 NEW COMMAND
   new SlashCommandBuilder()
     .setName('clearpunish')
     .setDescription('تصفير تحذيرات النظام الثاني')
@@ -123,19 +124,26 @@ const commands = [
     )
 ];
 
-// ================== REGISTER COMMANDS ==================
+// ================== REGISTER COMMANDS (FORCE REFRESH) ==================
 const rest = new REST({ version: '10' }).setToken(TOKEN);
 
 (async () => {
   try {
-    console.log(`Registering ${commands.length} commands...`);
+    console.log("🧹 Clearing old commands...");
+
+    await rest.put(
+      Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID),
+      { body: [] }
+    );
+
+    console.log("⚡ Registering new commands...");
 
     await rest.put(
       Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID),
       { body: commands.map(c => c.toJSON()) }
     );
 
-    console.log("✅ Commands Registered");
+    console.log(`✅ ${commands.length} Commands Registered`);
   } catch (e) {
     console.log(e);
   }
@@ -200,23 +208,19 @@ client.on('interactionCreate', async interaction => {
     }
 
     data.punishTimeout = interaction.options.getInteger('time');
-
     save();
     return interaction.reply('تم إعداد النظام الثاني');
   }
 
-  // 🔥 NEW COMMAND HANDLER
   if (interaction.commandName === 'clearpunish') {
     const user = interaction.options.getUser('user');
-
     data.punishWarns[user.id] = 0;
     save();
-
     return interaction.reply(`تم تصفير تحذيرات النظام الثاني لـ ${user}`);
   }
 });
 
-// ================== REACTION ==================
+// ================== REACTION SYSTEM ==================
 client.on('messageReactionAdd', async (reaction, user) => {
   if (user.bot) return;
 
@@ -250,66 +254,36 @@ client.on('messageReactionAdd', async (reaction, user) => {
 
     await msg.delete();
 
-    // ================== NORMAL SYSTEM ==================
+    // NORMAL SYSTEM
     if (!data.warns[target.id]) data.warns[target.id] = 0;
     if (!data.warnCycle[target.id]) data.warnCycle[target.id] = 0;
 
     data.warns[target.id]++;
 
     const count = data.warns[target.id];
-    const remaining = 3 - count;
 
     const randomMsg = data.messages[Math.floor(Math.random() * data.messages.length)];
+    msg.channel.send(`<@${target.id}> ${randomMsg} (${count}/3)`);
 
-    msg.channel.send(`<@${target.id}> ${randomMsg} (${count}/3) باقي ${remaining}`);
-
-    if (data.logChannel) {
-      const ch = guild.channels.cache.get(data.logChannel);
-      if (ch) {
-        const embed = new EmbedBuilder()
-          .setColor('Red')
-          .setAuthor({ name: user.tag, iconURL: user.displayAvatarURL() })
-          .setThumbnail(target.displayAvatarURL())
-          .addFields(
-            { name: 'المخالف', value: `<@${target.id}>`, inline: true },
-            { name: 'المحذر', value: `<@${user.id}>`, inline: true },
-            { name: 'التحذيرات', value: `${count}/3`, inline: true },
-            { name: 'الرسالة', value: deletedContent || 'بدون نص' }
-          )
-          .setTimestamp();
-
-        ch.send({ embeds: [embed] });
-      }
-    }
-
-    // ================== ESCALATION SYSTEM ==================
+    // ESCALATION
     if (count >= 3) {
-
       data.warnCycle[target.id]++;
 
-      let timeoutMs = 0;
-
-      if (data.warnCycle[target.id] === 1) timeoutMs = 10 * 60 * 1000;
-      else if (data.warnCycle[target.id] === 2) timeoutMs = 30 * 60 * 1000;
-      else {
-        timeoutMs = 60 * 60 * 1000;
-        data.warnCycle[target.id] = 0;
-      }
+      let timeoutMs =
+        data.warnCycle[target.id] === 1 ? 10 * 60 * 1000 :
+        data.warnCycle[target.id] === 2 ? 30 * 60 * 1000 :
+        (data.warnCycle[target.id] = 0, 60 * 60 * 1000);
 
       const targetMember = await guild.members.fetch(target.id);
-
       await targetMember.timeout(timeoutMs, 'warn cycle');
-
-      msg.channel.send(`<@${target.id}> تم إعطاؤه تايم أوت`);
 
       data.warns[target.id] = 0;
     }
 
-    // ================== PUNISH SYSTEM ==================
+    // PUNISH SYSTEM
     const punishUser = "1423421691773714482";
 
     if (user.id === punishUser) {
-
       const member2 = await guild.members.fetch(target.id);
 
       const hasRole = data.punishRoles.some(r =>
