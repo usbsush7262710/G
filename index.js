@@ -34,12 +34,10 @@ let data = {
   warns: {},
   usedMessages: {},
 
-  // NEW SYSTEM
   punishRoles: [],
   punishWarns: {},
   punishTimeout: 10,
 
-  // NEW: warn cycle
   warnCycle: {}
 };
 
@@ -59,61 +57,89 @@ const commands = [
     .setDescription('تحديد ايموجي التحذير')
     .addStringOption(o =>
       o.setName('emoji')
-       .setDescription('الايموجي')
-       .setRequired(true)
+        .setDescription('الايموجي')
+        .setRequired(true)
     ),
 
   new SlashCommandBuilder()
     .setName('setmodroles')
     .setDescription('تحديد 6 رتب')
     .addRoleOption(o => o.setName('role1').setDescription('رتبة 1').setRequired(true))
-    .addRoleOption(o => o.setName('role2').setDescription('رتبة 2'))
-    .addRoleOption(o => o.setName('role3').setDescription('رتبة 3'))
-    .addRoleOption(o => o.setName('role4').setDescription('رتبة 4'))
-    .addRoleOption(o => o.setName('role5').setDescription('رتبة 5'))
-    .addRoleOption(o => o.setName('role6').setDescription('رتبة 6')),
+    .addRoleOption(o => o.setName('role2'))
+    .addRoleOption(o => o.setName('role3'))
+    .addRoleOption(o => o.setName('role4'))
+    .addRoleOption(o => o.setName('role5'))
+    .addRoleOption(o => o.setName('role6')),
 
   new SlashCommandBuilder()
     .setName('setlogchannel')
     .setDescription('تحديد روم اللوق')
     .addChannelOption(o =>
       o.setName('channel')
-       .setDescription('روم اللوق')
-       .setRequired(true)
+        .setDescription('روم اللوق')
+        .setRequired(true)
     ),
 
   new SlashCommandBuilder()
     .setName('setmessages')
     .setDescription('تحديد 5 رسائل')
-    .addStringOption(o => o.setName('m1').setDescription('رسالة 1').setRequired(true))
-    .addStringOption(o => o.setName('m2').setDescription('رسالة 2').setRequired(true))
-    .addStringOption(o => o.setName('m3').setDescription('رسالة 3').setRequired(true))
-    .addStringOption(o => o.setName('m4').setDescription('رسالة 4').setRequired(true))
-    .addStringOption(o => o.setName('m5').setDescription('رسالة 5').setRequired(true)),
+    .addStringOption(o => o.setName('m1').setRequired(true))
+    .addStringOption(o => o.setName('m2').setRequired(true))
+    .addStringOption(o => o.setName('m3').setRequired(true))
+    .addStringOption(o => o.setName('m4').setRequired(true))
+    .addStringOption(o => o.setName('m5').setRequired(true)),
 
   new SlashCommandBuilder()
     .setName('clearwarns')
     .setDescription('حذف تحذيرات شخص')
     .addUserOption(o =>
       o.setName('user')
-       .setDescription('الشخص')
-       .setRequired(true)
+        .setDescription('الشخص')
+        .setRequired(true)
     ),
 
   new SlashCommandBuilder()
     .setName('setpunish')
     .setDescription('نظام التحذير الثاني')
-    .addRoleOption(o => o.setName('role1').setDescription('رتبة 1').setRequired(true))
-    .addRoleOption(o => o.setName('role2').setDescription('رتبة 2'))
-    .addRoleOption(o => o.setName('role3').setDescription('رتبة 3'))
-    .addRoleOption(o => o.setName('role4').setDescription('رتبة 4'))
-    .addRoleOption(o => o.setName('role5').setDescription('رتبة 5'))
+    .addRoleOption(o => o.setName('role1').setRequired(true))
+    .addRoleOption(o => o.setName('role2'))
+    .addRoleOption(o => o.setName('role3'))
+    .addRoleOption(o => o.setName('role4'))
+    .addRoleOption(o => o.setName('role5'))
     .addIntegerOption(o =>
       o.setName('time')
-       .setDescription('10 / 30 / 60 دقائق')
-       .setRequired(true)
+        .setDescription('10 / 30 / 60 دقائق')
+        .setRequired(true)
+    ),
+
+  // 🔥 NEW COMMAND
+  new SlashCommandBuilder()
+    .setName('clearpunish')
+    .setDescription('تصفير تحذيرات النظام الثاني')
+    .addUserOption(o =>
+      o.setName('user')
+        .setDescription('الشخص')
+        .setRequired(true)
     )
 ];
+
+// ================== REGISTER COMMANDS ==================
+const rest = new REST({ version: '10' }).setToken(TOKEN);
+
+(async () => {
+  try {
+    console.log(`Registering ${commands.length} commands...`);
+
+    await rest.put(
+      Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID),
+      { body: commands.map(c => c.toJSON()) }
+    );
+
+    console.log("✅ Commands Registered");
+  } catch (e) {
+    console.log(e);
+  }
+})();
 
 // ================== COMMAND HANDLER ==================
 client.on('interactionCreate', async interaction => {
@@ -177,6 +203,16 @@ client.on('interactionCreate', async interaction => {
 
     save();
     return interaction.reply('تم إعداد النظام الثاني');
+  }
+
+  // 🔥 NEW COMMAND HANDLER
+  if (interaction.commandName === 'clearpunish') {
+    const user = interaction.options.getUser('user');
+
+    data.punishWarns[user.id] = 0;
+    save();
+
+    return interaction.reply(`تم تصفير تحذيرات النظام الثاني لـ ${user}`);
   }
 });
 
@@ -246,7 +282,7 @@ client.on('messageReactionAdd', async (reaction, user) => {
       }
     }
 
-    // ================== NORMAL ESCALATION SYSTEM ==================
+    // ================== ESCALATION SYSTEM ==================
     if (count >= 3) {
 
       data.warnCycle[target.id]++;
@@ -269,7 +305,7 @@ client.on('messageReactionAdd', async (reaction, user) => {
       data.warns[target.id] = 0;
     }
 
-    // ================== NEW PUNISH SYSTEM ==================
+    // ================== PUNISH SYSTEM ==================
     const punishUser = "1423421691773714482";
 
     if (user.id === punishUser) {
