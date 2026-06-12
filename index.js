@@ -20,8 +20,7 @@ const client = new Client({
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessageReactions,
     GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.GuildMembers,
-    GatewayIntentBits.MessageContent
+    GatewayIntentBits.GuildMembers
   ],
   partials: [Partials.Message, Partials.Channel, Partials.Reaction]
 });
@@ -34,7 +33,7 @@ let data = {
   messages: [],
   warns: {},
   usedMessages: {},
-  timeouts: {}
+  timeouts: {} // 👈 الجديد
 };
 
 if (fs.existsSync('./data.json')) {
@@ -53,51 +52,50 @@ const commands = [
     .setDescription('تحديد ايموجي التحذير')
     .addStringOption(o =>
       o.setName('emoji')
-        .setDescription('الايموجي')
-        .setRequired(true)
+       .setDescription('الايموجي')
+       .setRequired(true)
     ),
 
   new SlashCommandBuilder()
     .setName('setmodroles')
     .setDescription('تحديد 6 رتب')
     .addRoleOption(o => o.setName('role1').setDescription('رتبة 1').setRequired(true))
-    .addRoleOption(o => o.setName('role2'))
-    .addRoleOption(o => o.setName('role3'))
-    .addRoleOption(o => o.setName('role4'))
-    .addRoleOption(o => o.setName('role5'))
-    .addRoleOption(o => o.setName('role6')),
+    .addRoleOption(o => o.setName('role2').setDescription('رتبة 2'))
+    .addRoleOption(o => o.setName('role3').setDescription('رتبة 3'))
+    .addRoleOption(o => o.setName('role4').setDescription('رتبة 4'))
+    .addRoleOption(o => o.setName('role5').setDescription('رتبة 5'))
+    .addRoleOption(o => o.setName('role6').setDescription('رتبة 6')),
 
   new SlashCommandBuilder()
     .setName('setlogchannel')
     .setDescription('تحديد روم اللوق')
     .addChannelOption(o =>
       o.setName('channel')
-        .setDescription('روم اللوق')
-        .setRequired(true)
+       .setDescription('روم اللوق')
+       .setRequired(true)
     ),
 
   new SlashCommandBuilder()
     .setName('setmessages')
     .setDescription('تحديد 5 رسائل')
-    .addStringOption(o => o.setName('m1').setRequired(true))
-    .addStringOption(o => o.setName('m2').setRequired(true))
-    .addStringOption(o => o.setName('m3').setRequired(true))
-    .addStringOption(o => o.setName('m4').setRequired(true))
-    .addStringOption(o => o.setName('m5').setRequired(true)),
+    .addStringOption(o => o.setName('m1').setDescription('رسالة 1').setRequired(true))
+    .addStringOption(o => o.setName('m2').setDescription('رسالة 2').setRequired(true))
+    .addStringOption(o => o.setName('m3').setDescription('رسالة 3').setRequired(true))
+    .addStringOption(o => o.setName('m4').setDescription('رسالة 4').setRequired(true))
+    .addStringOption(o => o.setName('m5').setDescription('رسالة 5').setRequired(true)),
 
   new SlashCommandBuilder()
     .setName('clearwarns')
     .setDescription('حذف تحذيرات شخص')
     .addUserOption(o =>
       o.setName('user')
-        .setDescription('الشخص')
-        .setRequired(true)
+       .setDescription('الشخص')
+       .setRequired(true)
     )
 ];
 
-// ================== REGISTER ==================
+// تسجيل الأوامر
 const rest = new REST({ version: '10' }).setToken(TOKEN);
-
 (async () => {
   try {
     await rest.put(
@@ -110,7 +108,7 @@ const rest = new REST({ version: '10' }).setToken(TOKEN);
   }
 })();
 
-// ================== COMMANDS ==================
+// ================== COMMAND HANDLER ==================
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
@@ -160,7 +158,7 @@ client.on('interactionCreate', async interaction => {
   }
 });
 
-// ================== REACTION SYSTEM ==================
+// ================== REACTION ==================
 client.on('messageReactionAdd', async (reaction, user) => {
   if (user.bot) return;
 
@@ -202,19 +200,23 @@ client.on('messageReactionAdd', async (reaction, user) => {
 
     const randomMsg = data.messages[Math.floor(Math.random() * data.messages.length)];
 
-    msg.channel.send(`<@${target.id}> ${randomMsg} (${count}/3)`);
+    msg.channel.send(`<@${target.id}> ${randomMsg} (${count}/3) باقي ${remaining}`);
 
+    // ===== LOG EMBED =====
     if (data.logChannel) {
       const ch = guild.channels.cache.get(data.logChannel);
       if (ch) {
         const embed = new EmbedBuilder()
           .setColor('Red')
-          .setAuthor({ name: user.tag, iconURL: user.displayAvatarURL() })
+          .setAuthor({
+            name: user.tag,
+            iconURL: user.displayAvatarURL()
+          })
           .setThumbnail(target.displayAvatarURL())
           .addFields(
-            { name: 'المخالف', value: `<@${target.id}>` },
-            { name: 'المحذر', value: `<@${user.id}>` },
-            { name: 'التحذيرات', value: `${count}/3` },
+            { name: 'المخالف', value: `<@${target.id}>`, inline: true },
+            { name: 'المحذر', value: `<@${user.id}>`, inline: true },
+            { name: 'التحذيرات', value: `${count}/3`, inline: true },
             { name: 'الرسالة', value: deletedContent || 'بدون نص' }
           )
           .setTimestamp();
@@ -223,6 +225,7 @@ client.on('messageReactionAdd', async (reaction, user) => {
       }
     }
 
+    // ===== TIMEOUT (تدريجي) =====
     if (count >= 3) {
       const targetMember = await guild.members.fetch(target.id);
 
@@ -241,6 +244,7 @@ client.on('messageReactionAdd', async (reaction, user) => {
       } else {
         duration = 60 * 60 * 1000;
         text = 'ساعة';
+
         data.timeouts[target.id] = 0;
       }
 
@@ -255,40 +259,6 @@ client.on('messageReactionAdd', async (reaction, user) => {
 
   } catch (e) {
     console.log(e);
-  }
-});
-
-// ================== PROTECTED MENTION SYSTEM ==================
-client.on('messageCreate', async (message) => {
-  if (message.author.bot || !message.guild) return;
-
-  const protectedUserId = '1270621018968428554';
-  const exemptRoleId = '1503165773344931890';
-
-  if (message.mentions.everyone) return;
-
-  if (!message.mentions.users.has(protectedUserId)) return;
-
-  if (message.member.roles.cache.has(exemptRoleId)) return;
-
-  try {
-    await message.delete().catch(() => {});
-
-    const targetMember = await message.guild.members.fetch(message.author.id);
-
-    await targetMember.timeout(
-      5 * 60 * 1000,
-      'منشن عضو محمي'
-    );
-
-    try {
-      await message.author.send(
-        'لا عاد تمنشن محارمنا يخوي<a:0Trtfsleepy:1513905593340133477>'
-      );
-    } catch {}
-
-  } catch (err) {
-    console.log(err);
   }
 });
 
